@@ -15,6 +15,7 @@ builder.Services.AddDbContext<OrdenesDbContext>(options =>
 
 // Servicios
 builder.Services.AddScoped<OrdenService>();
+builder.Services.AddSingleton<RabbitMQPublisher>();
 
 var app = builder.Build();
 

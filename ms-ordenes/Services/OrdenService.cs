@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MsOrdenes.Data;
+using MsOrdenes.Events;
 using MsOrdenes.Models;
 
 namespace MsOrdenes.Services;
@@ -7,10 +8,12 @@ namespace MsOrdenes.Services;
 public class OrdenService
 {
     private readonly OrdenesDbContext _db;
+    private readonly RabbitMQPublisher _publisher;
 
-    public OrdenService(OrdenesDbContext db)
+    public OrdenService(OrdenesDbContext db, RabbitMQPublisher publisher)
     {
         _db = db;
+        _publisher = publisher;
     }
 
     public async Task<OrdenResponse> CrearOrdenAsync(CrearOrdenRequest request)
@@ -66,7 +69,29 @@ public class OrdenService
         _db.Ordenes.Add(orden);
         await _db.SaveChangesAsync();
 
-        // 5. Retornar respuesta
+        // 5. Publicar evento OrdenCreada en RabbitMQ
+        var evento = new OrdenCreadaEvent
+        {
+            OrdenId = orden.Id,
+            ClienteId = orden.UsuarioId,
+            Total = orden.Total,
+            Descuento = orden.DescuentoMonto,
+            ModalidadPago = orden.ModalidadPago,
+            MesesMsi = orden.MesesMsi,
+            CreadoEn = DateTime.UtcNow,
+            Items = orden.Items.Select(i => new ItemEvent
+            {
+                ProductoId = i.ProductoId,
+                NombreProducto = i.NombreProducto,
+                PrecioUnitario = i.PrecioUnitario,
+                Cantidad = i.Cantidad,
+                EsElectronico = i.EsElectronico
+            }).ToList()
+        };
+
+        await _publisher.PublicarAsync("tienda.ordenes", "orden.creada", evento);
+
+        // 6. Retornar respuesta
         return new OrdenResponse
         {
             Id = orden.Id,
