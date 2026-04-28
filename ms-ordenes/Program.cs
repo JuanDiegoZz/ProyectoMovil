@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using MsOrdenes.Data;
+using MsOrdenes.Endpoints;
+using MsOrdenes.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +12,9 @@ builder.Services.AddSwaggerGen();
 // SQL Server
 builder.Services.AddDbContext<OrdenesDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SqlServer")));
+
+// Servicios
+builder.Services.AddScoped<OrdenService>();
 
 var app = builder.Build();
 
@@ -25,5 +30,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapGet("/", () => "MS Órdenes corriendo ✅");
+
+// Endpoints
+app.MapOrdenesEndpoints();
 
 app.Run();
