@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using MsOrdenes.Data;
 using MsOrdenes.Endpoints;
+using MsOrdenes.Handlers;
 using MsOrdenes.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,7 @@ builder.Services.AddDbContext<OrdenesDbContext>(options =>
 
 // Servicios
 builder.Services.AddScoped<OrdenService>();
+builder.Services.AddHostedService<PagoConsumer>();
 builder.Services.AddSingleton<RabbitMQPublisher>();
 
 var app = builder.Build();
