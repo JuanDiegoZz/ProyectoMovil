@@ -10,6 +10,7 @@ public class OrdenesDbContext : DbContext
 
     public DbSet<Orden> Ordenes => Set<Orden>();
     public DbSet<ItemOrden> ItemsOrden => Set<ItemOrden>();
+    public DbSet<OutboxIdempotencia> Idempotencias => Set<OutboxIdempotencia>(); // ← NUEVO
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +39,15 @@ public class OrdenesDbContext : DbContext
             entity.HasOne(e => e.Orden)
                   .WithMany(o => o.Items)
                   .HasForeignKey(e => e.OrdenId);
+        });
+
+        // Tabla Idempotencias ← NUEVO
+        modelBuilder.Entity<OutboxIdempotencia>(entity =>
+        {
+            entity.ToTable("idempotencias", "ordenes");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.IdempotencyKey).HasMaxLength(100);
+            entity.HasIndex(e => e.IdempotencyKey).IsUnique();
         });
     }
 }

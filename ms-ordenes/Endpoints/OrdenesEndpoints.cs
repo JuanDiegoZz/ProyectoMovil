@@ -1,5 +1,8 @@
+using Microsoft.EntityFrameworkCore;
+using MsOrdenes.Data;
 using MsOrdenes.Models;
 using MsOrdenes.Services;
+using System.Text.Json;
 
 namespace MsOrdenes.Endpoints;
 
@@ -10,12 +13,45 @@ public static class OrdenesEndpoints
         var group = app.MapGroup("/ordenes")
             .WithTags("Ordenes");
 
-        // POST /ordenes - Crear orden
-        group.MapPost("/", async (CrearOrdenRequest request, OrdenService service) =>
+        // POST /ordenes - Crear orden con idempotencia
+        group.MapPost("/", async (
+            HttpContext http,
+            CrearOrdenRequest request,
+            OrdenService service,
+            OrdenesDbContext db) =>
         {
+            // 1. Verificar Idempotency-Key
+            if (!http.Request.Headers.TryGetValue("Idempotency-Key", out var idempotencyKey) 
+                || string.IsNullOrEmpty(idempotencyKey))
+            {
+                return Results.BadRequest("Se requiere el header 'Idempotency-Key'");
+            }
+
+            // 2. Verificar si ya existe esa clave
+            var existente = await db.Idempotencias
+                .FirstOrDefaultAsync(i => i.IdempotencyKey == idempotencyKey.ToString());
+
+            if (existente is not null)
+            {
+                var ordenExistente = JsonSerializer.Deserialize<OrdenResponse>(existente.ResponseJson);
+                return Results.Ok(ordenExistente);
+            }
+
             try
             {
+                // 3. Crear la orden
                 var orden = await service.CrearOrdenAsync(request);
+
+                // 4. Guardar la clave de idempotencia
+                db.Idempotencias.Add(new OutboxIdempotencia
+                {
+                    IdempotencyKey = idempotencyKey.ToString(),
+                    Endpoint = "POST /ordenes",
+                    ResponseJson = JsonSerializer.Serialize(orden),
+                    CreadoEn = DateTime.UtcNow
+                });
+                await db.SaveChangesAsync();
+
                 return Results.Created($"/ordenes/{orden.Id}", orden);
             }
             catch (Exception ex)
