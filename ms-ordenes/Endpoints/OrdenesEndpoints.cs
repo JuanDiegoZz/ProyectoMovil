@@ -20,14 +20,22 @@ public static class OrdenesEndpoints
             OrdenService service,
             OrdenesDbContext db) =>
         {
-            // 1. Verificar Idempotency-Key
-            if (!http.Request.Headers.TryGetValue("Idempotency-Key", out var idempotencyKey) 
-                || string.IsNullOrEmpty(idempotencyKey))
-            {
-                return Results.BadRequest("Se requiere el header 'Idempotency-Key'");
-            }
+            // Validar request
+            if (request.Items is null || request.Items.Count == 0)
+                return Results.BadRequest(new { error = "La orden debe tener al menos un item" });
 
-            // 2. Verificar si ya existe esa clave
+            if (request.UsuarioId <= 0)
+                return Results.BadRequest(new { error = "El usuarioId no es válido" });
+
+            if (!new[] { "contado", "3msi", "6msi", "12msi" }.Contains(request.ModalidadPago))
+                return Results.BadRequest(new { error = "La modalidad de pago no es válida. Use: contado, 3msi, 6msi, 12msi" });
+
+            // Verificar Idempotency-Key
+            if (!http.Request.Headers.TryGetValue("Idempotency-Key", out var idempotencyKey)
+                || string.IsNullOrEmpty(idempotencyKey))
+                return Results.BadRequest(new { error = "Se requiere el header 'Idempotency-Key'" });
+
+            // Verificar si ya existe esa clave
             var existente = await db.Idempotencias
                 .FirstOrDefaultAsync(i => i.IdempotencyKey == idempotencyKey.ToString());
 
@@ -39,10 +47,8 @@ public static class OrdenesEndpoints
 
             try
             {
-                // 3. Crear la orden
                 var orden = await service.CrearOrdenAsync(request);
 
-                // 4. Guardar la clave de idempotencia
                 db.Idempotencias.Add(new OutboxIdempotencia
                 {
                     IdempotencyKey = idempotencyKey.ToString(),
@@ -56,26 +62,60 @@ public static class OrdenesEndpoints
             }
             catch (Exception ex)
             {
-                return Results.Problem(ex.Message);
+                return Results.Problem(
+                    detail: ex.Message,
+                    title: "Error al crear la orden",
+                    statusCode: 500
+                );
             }
         })
         .WithName("CrearOrden")
         .WithSummary("Crea una nueva orden aplicando descuentos automáticos");
 
-        // GET /ordenes/{id} - Obtener orden por ID
+        // GET /ordenes/{id}
         group.MapGet("/{id:int}", async (int id, OrdenService service) =>
         {
-            var orden = await service.ObtenerOrdenPorIdAsync(id);
-            return orden is null ? Results.NotFound() : Results.Ok(orden);
+            if (id <= 0)
+                return Results.BadRequest(new { error = "El id debe ser mayor a 0" });
+
+            try
+            {
+                var orden = await service.ObtenerOrdenPorIdAsync(id);
+                return orden is null
+                    ? Results.NotFound(new { error = $"No se encontró la orden con id {id}" })
+                    : Results.Ok(orden);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: ex.Message,
+                    title: "Error al obtener la orden",
+                    statusCode: 500
+                );
+            }
         })
         .WithName("ObtenerOrden")
         .WithSummary("Obtiene una orden por ID");
 
-        // GET /ordenes/usuario/{usuarioId} - Obtener órdenes por usuario
+        // GET /ordenes/usuario/{usuarioId}
         group.MapGet("/usuario/{usuarioId:int}", async (int usuarioId, OrdenService service) =>
         {
-            var ordenes = await service.ObtenerOrdenesPorUsuarioAsync(usuarioId);
-            return Results.Ok(ordenes);
+            if (usuarioId <= 0)
+                return Results.BadRequest(new { error = "El usuarioId debe ser mayor a 0" });
+
+            try
+            {
+                var ordenes = await service.ObtenerOrdenesPorUsuarioAsync(usuarioId);
+                return Results.Ok(ordenes);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: ex.Message,
+                    title: "Error al obtener las órdenes del usuario",
+                    statusCode: 500
+                );
+            }
         })
         .WithName("ObtenerOrdenesPorUsuario")
         .WithSummary("Obtiene todas las órdenes de un usuario");

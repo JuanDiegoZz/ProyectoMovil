@@ -12,8 +12,26 @@ public static class PagosEndpoints
         // GET /pagos/orden/{ordenId}
         group.MapGet("/orden/{ordenId:int}", async (int ordenId, PagoService service) =>
         {
-            var pagos = await service.ObtenerPagosPorOrdenAsync(ordenId);
-            return Results.Ok(pagos);
+            if (ordenId <= 0)
+                return Results.BadRequest(new { error = "El ordenId debe ser mayor a 0" });
+
+            try
+            {
+                var pagos = await service.ObtenerPagosPorOrdenAsync(ordenId);
+
+                if (pagos is null || pagos.Count == 0)
+                    return Results.NotFound(new { error = $"No se encontraron pagos para la orden {ordenId}" });
+
+                return Results.Ok(pagos);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: ex.Message,
+                    title: "Error al obtener los pagos",
+                    statusCode: 500
+                );
+            }
         })
         .WithName("ObtenerPagosPorOrden")
         .WithSummary("Obtiene los pagos de una orden");

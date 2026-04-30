@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MsPagos")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fe9405287036315d071ee88f3991baac476908fd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c1591c658ceb7af9b7a187438244120afc10e440")]
 [assembly: System.Reflection.AssemblyProductAttribute("MsPagos")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MsPagos")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
